@@ -2,6 +2,9 @@ FROM mcr.microsoft.com/playwright/python:v1.59.0-jammy
 
 WORKDIR /app
 
+# Cache bust
+ARG CACHEBUST=2
+
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
