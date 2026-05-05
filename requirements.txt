@@ -1,4 +1,4 @@
 flask
 requests
-playwright==1.44.0
+playwright==1.59.0
 gunicorn
