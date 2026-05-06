@@ -36,9 +36,10 @@ ALIASES = {
     'signupLink2': ['sign up link 2', 'signup link 2'],
     'status':      ['status'],
     'image':       ['image'],
+    'dueDate':     ['due date', 'duedate', 'send date', 'senddate'],
 }
 
-MJML_BASE = """<mjml dir="ltr" lang="en" owa="desktop" version="4.14.1">
+MJML_OPEN = """<mjml dir="ltr" lang="en" owa="desktop" version="4.14.1">
   <mj-head>
     <mj-font href="https://fonts.googleapis.com/css2?family=Josefin%20Sans:wght@300;400;500;700;800;900" name="Josefin Sans, Arial, sans-serif"></mj-font>
     <mj-preview></mj-preview>
@@ -48,7 +49,9 @@ MJML_BASE = """<mjml dir="ltr" lang="en" owa="desktop" version="4.14.1">
       <mj-column>
         <mj-image align="center" alt="" border="none" container-background-color="#e0d3c3" height="auto" padding="10px 25px" src="https://sjqzn.mjt.lu/img2/sjqzn/519a4db6-cda9-4e32-8e6f-608386b2fadd/content" width="200px"></mj-image>
       </mj-column>
-    </mj-section>
+    </mj-section>"""
+
+MJML_EVENT_SECTION = """
     <mj-section background-color="#f4f4f4" padding="5px 0px">
       <mj-column>
         <mj-text font-family="Verdana, Helvetica, Arial, sans-serif" padding="0px" passport-element="html" width="100%">
@@ -69,7 +72,15 @@ MJML_BASE = """<mjml dir="ltr" lang="en" owa="desktop" version="4.14.1">
         BUTTON2_PLACEHOLDER
         <mj-divider border-color="#E6E6E6" border-style="solid" border-width="2px" padding="10px 25px" width="100%"></mj-divider>
       </mj-column>
-    </mj-section>
+    </mj-section>"""
+
+MJML_BUTTON2 = """<mj-text font-family="Verdana, Helvetica, Arial, sans-serif" padding="0px" passport-element="html" width="100%">
+          <p style="text-align:center;margin-top:10px;">
+            <a href="SIGNUP_LINK2" style="background-color:#FFFFFF;color:#000000;border:1px solid #000000;border-radius:10px;padding:10px 20px;text-decoration:none;font-family:'Josefin Sans',sans-serif;font-size:20px;font-weight:bold;display:inline-block">SIGNUP_TEXT2</a>
+          </p>
+        </mj-text>"""
+
+MJML_CLOSE = """
     <mj-section background-color="#e0d3c3" padding="15px 25px 5px">
       <mj-column>
         <mj-text font-family="Verdana, Helvetica, Arial, sans-serif" padding="0px" passport-element="html" width="100%">
@@ -93,11 +104,6 @@ MJML_BASE = """<mjml dir="ltr" lang="en" owa="desktop" version="4.14.1">
   </mj-body>
 </mjml>"""
 
-BUTTON2_MJML = """<mj-text font-family="Verdana, Helvetica, Arial, sans-serif" padding="0px" passport-element="html" width="100%">
-          <p style="text-align:center;margin-top:10px;">
-            <a href="SIGNUP_LINK2" style="background-color:#FFFFFF;color:#000000;border:1px solid #000000;border-radius:10px;padding:10px 20px;text-decoration:none;font-family:'Josefin Sans',sans-serif;font-size:20px;font-weight:bold;display:inline-block">SIGNUP_TEXT2</a>
-          </p>
-        </mj-text>"""
 
 def parse_csv(text):
     reader = csv.reader(io.StringIO(text))
@@ -121,7 +127,7 @@ def format_datetime(date, time_str):
     date = re.sub(r'^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*,?\s*', '', date, flags=re.IGNORECASE).strip()
     return f"{date} | {time_str}" if time_str else date
 
-def fill_template(event):
+def fill_event_section(event):
     name  = event['name']
     date  = format_datetime(event['date'], event['time'])
     desc  = event['desc']
@@ -131,9 +137,9 @@ def fill_template(event):
     lnk2  = event['signupLink2'] if event['signupLink2'].startswith('http') else ''
     image = event['image'] if event['image'].startswith('http') else 'https://sjqzn.mjt.lu/img2/sjqzn/1ef5c329-24ef-45e8-9010-9d1d6393531e/content'
 
-    btn2 = BUTTON2_MJML.replace('SIGNUP_LINK2', lnk2).replace('SIGNUP_TEXT2', txt2) if txt2 and lnk2 else ''
+    btn2 = MJML_BUTTON2.replace('SIGNUP_LINK2', lnk2).replace('SIGNUP_TEXT2', txt2) if txt2 and lnk2 else ''
 
-    return (MJML_BASE
+    return (MJML_EVENT_SECTION
         .replace('EVENT_TITLE', name)
         .replace('EVENT_DATE', date)
         .replace('EVENT_DESCRIPTION', desc)
@@ -141,6 +147,10 @@ def fill_template(event):
         .replace('SIGNUP_LINK1', lnk1)
         .replace('SIGNUP_TEXT1', txt1)
         .replace('BUTTON2_PLACEHOLDER', btn2))
+
+def build_mjml(events):
+    sections = ''.join(fill_event_section(e) for e in events)
+    return MJML_OPEN + sections + MJML_CLOSE
 
 def mark_done(event_name):
     try:
@@ -165,28 +175,56 @@ def get_events():
 def run_automation():
     try:
         data = request.json or {}
-        selected = data.get('selected', [])  # List of event names to process
+        selected = data.get('selected', [])
 
         res = requests.get(SHEET_CSV_URL, timeout=15)
         res.raise_for_status()
         events = parse_csv(res.text)
 
-        # Filter: only New events that are selected
+        # Filter: New events that are selected
         to_process = [e for e in events
                       if e['status'].lower() == 'new' and e['name'] in selected]
 
         if not to_process:
             return jsonify({'success': True, 'results': [], 'message': 'No events selected.'})
 
-        results = []
+        # Group by Due Date — events with same due date merge into one file
+        groups = {}
         for event in to_process:
+            due = event['dueDate'].strip() or 'no_due_date'
+            groups.setdefault(due, []).append(event)
+
+        results = []
+        for due_date, group_events in groups.items():
             try:
-                mjml = fill_template(event)
-                filename = re.sub(r'[^a-zA-Z0-9]+', '_', event['name']) + '.mjml'
-                mark_done(event['name'])
-                results.append({'name': event['name'], 'status': 'success', 'mjml': mjml, 'filename': filename})
+                mjml = build_mjml(group_events)
+
+                # Filename: due date if available, else first event name
+                if due_date != 'no_due_date':
+                    filename = re.sub(r'[^a-zA-Z0-9]+', '_', due_date) + '.mjml'
+                    label = f"{due_date} ({len(group_events)} event{'s' if len(group_events) > 1 else ''})"
+                else:
+                    filename = re.sub(r'[^a-zA-Z0-9]+', '_', group_events[0]['name']) + '.mjml'
+                    label = group_events[0]['name']
+
+                # Mark all events in group as Done
+                for e in group_events:
+                    mark_done(e['name'])
+
+                results.append({
+                    'name': label,
+                    'events': [e['name'] for e in group_events],
+                    'status': 'success',
+                    'mjml': mjml,
+                    'filename': filename
+                })
             except Exception as ex:
-                results.append({'name': event['name'], 'status': 'error', 'error': str(ex)})
+                results.append({
+                    'name': due_date,
+                    'events': [e['name'] for e in group_events],
+                    'status': 'error',
+                    'error': str(ex)
+                })
 
         return jsonify({'success': True, 'results': results})
 
