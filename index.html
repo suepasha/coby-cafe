@@ -110,10 +110,11 @@ async function pollStatus(jobId, total) {
     const data = await res.json();
     if (!data.success) return;
 
-    const results = data.results || [];
+    const results = Array.isArray(data.results) ? data.results : [];
     log('Progress: ' + results.length + '/' + total + ' processed...');
 
     results.forEach(r => {
+      if (!r || !r.name) return;
       parsedEvents.forEach((e, i) => {
         if (e.name === r.name) {
           if (r.status === 'success') setBadge(i, 'done', 'Done ✓');
