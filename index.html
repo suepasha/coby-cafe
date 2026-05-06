@@ -199,14 +199,17 @@ async function runAutomation() {
         log('✅ ' + r.name);
         generatedFiles[r.filename] = r.mjml;
         successCount++;
-        setBadge(r.name, 'done', 'Ready ✓');
+        // Update badges for all events in this group
+        if (r.events) r.events.forEach(eName => setBadge(eName, 'done', 'Ready ✓'));
+        else setBadge(r.name, 'done', 'Ready ✓');
         const div = document.createElement('div');
         div.className = 'download-item';
-        div.innerHTML = `<div class="dname">${r.name}</div><button class="dl-btn" onclick="downloadFile('${r.filename}')">⬇ Download</button>`;
+        const subText = r.events && r.events.length > 1 ? '<div style="font-size:11px;color:#999;margin-top:2px;">' + r.events.join(', ') + '</div>' : '';
+        div.innerHTML = `<div><div class="dname">${r.name}</div>${subText}</div><button class="dl-btn" onclick="downloadFile('${r.filename}')">⬇ Download</button>`;
         dlList.appendChild(div);
       } else {
         log('❌ ' + r.name + ': ' + r.error);
-        setBadge(r.name, 'error', 'Error');
+        if (r.events) r.events.forEach(eName => setBadge(eName, 'error', 'Error'));
       }
     });
 
