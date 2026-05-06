@@ -158,7 +158,7 @@ def playwright_import(event_name, html_content, job_id):
                     log.append(f'Button {i}: text={btn.inner_text()[:30]} type={btn.get_attribute("type")}')
                 
                 submitted = False
-                for sel in ['button[type="submit"]', 'button:has-text("Sign in")', 'button:has-text("Log in")', 'button:has-text("Login")', 'button:has-text("Sign")', 'button:has-text("Log")']:
+                for sel in ['text=Log in to Mailjet', 'button[type="submit"]', 'button:has-text("Sign in")', 'button:has-text("Log in")', 'button:has-text("Login")', 'button:has-text("Sign")', 'button:has-text("Log")']:
                     try:
                         page.click(sel, timeout=3000)
                         log.append(f'Submitted: {sel}')
