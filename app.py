@@ -110,8 +110,21 @@ def playwright_import(event_name, html_content, job_id):
     try:
         from playwright.sync_api import sync_playwright
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage'
+                ]
+            )
+            context = browser.new_context(
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                viewport={'width': 1280, 'height': 800},
+                locale='en-US'
+            )
+            context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            page = context.new_page()
             try:
                 log.append('Opening Mailjet login...')
                 page.goto('https://app.mailjet.com/signin', timeout=30000)
@@ -137,17 +150,37 @@ def playwright_import(event_name, html_content, job_id):
                     except:
                         continue
 
-                # Submit
-                for sel in ['button[type="submit"]', 'button:has-text("Sign")', 'button:has-text("Log")']:
+                # Submit - try all buttons
+                page.wait_for_timeout(1000)
+                buttons = page.query_selector_all('button')
+                log.append(f'Found {len(buttons)} buttons on page')
+                for i, btn in enumerate(buttons):
+                    log.append(f'Button {i}: text={btn.inner_text()[:30]} type={btn.get_attribute("type")}')
+                
+                submitted = False
+                for sel in ['button[type="submit"]', 'button:has-text("Sign in")', 'button:has-text("Log in")', 'button:has-text("Login")', 'button:has-text("Sign")', 'button:has-text("Log")']:
                     try:
-                        page.click(sel, timeout=5000)
+                        page.click(sel, timeout=3000)
                         log.append(f'Submitted: {sel}')
+                        submitted = True
                         break
                     except:
                         continue
+                
+                if not submitted and buttons:
+                    buttons[-1].click()
+                    log.append('Clicked last button as fallback')
 
+                page.wait_for_timeout(5000)
                 page.wait_for_load_state('networkidle', timeout=30000)
-                log.append(f'After login: {page.url}')
+                log.append(f'After login: {page.url} | Title: {page.title()}')
+                
+                if 'signin' in page.url or 'login' in page.url:
+                    log.append('WARNING: Still on login page - login may have failed!')
+                    # Check for error messages
+                    errors = page.query_selector_all('.error, .alert, [class*="error"], [class*="alert"]')
+                    for err in errors:
+                        log.append(f'Page error: {err.inner_text()[:100]}')
 
                 # Go to templates
                 page.goto('https://app.mailjet.com/templates/marketing', timeout=30000)
@@ -255,8 +288,21 @@ def test_playwright():
     try:
         from playwright.sync_api import sync_playwright
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage'
+                ]
+            )
+            context = browser.new_context(
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                viewport={'width': 1280, 'height': 800},
+                locale='en-US'
+            )
+            context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            page = context.new_page()
             page.goto('https://example.com')
             title = page.title()
             browser.close()
