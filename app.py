@@ -129,60 +129,73 @@ def playwright_import(event_name, html_content, job_id):
                 log.append('Opening Mailjet login...')
                 page.goto('https://app.mailjet.com/signin', timeout=30000)
                 page.wait_for_load_state('domcontentloaded', timeout=30000)
-                page.wait_for_timeout(8000)
-                log.append(f'URL: {page.url} Title: {page.title()}')
+                page.wait_for_timeout(3000)
+                log.append(f'Login page: {page.url} | {page.title()}')
+
+                # Accept cookie popup by clicking Allow All (button index 3)
+                try:
+                    buttons = page.query_selector_all('button')
+                    for btn in buttons:
+                        txt = btn.inner_text().strip()
+                        if txt in ['Allow All', 'Accept Cookies', 'Accept all', 'Accept']:
+                            btn.click()
+                            log.append(f'Clicked cookie button: {txt}')
+                            page.wait_for_timeout(2000)
+                            break
+                except Exception as ce:
+                    log.append(f'Cookie click error: {ce}')
+
+                # Now fill email - look for visible inputs
+                page.wait_for_timeout(1000)
+                all_inputs = page.query_selector_all('input:visible')
+                log.append(f'Visible inputs: {len(all_inputs)}')
+                for idx, inp in enumerate(all_inputs):
+                    t = inp.get_attribute('type') or 'text'
+                    n = inp.get_attribute('name') or ''
+                    log.append(f'Input {idx}: type={t} name={n}')
 
                 # Fill email
-                for sel in ['input[type="email"]', 'input[name="email"]', '#email', 'input']:
+                email_done = False
+                for sel in ['input[type="email"]', 'input[name="email"]', 'input[name="_username"]', '#email']:
                     try:
-                        page.fill(sel, MAILJET_EMAIL, timeout=5000)
-                        log.append(f'Email filled: {sel}')
+                        page.fill(sel, MAILJET_EMAIL, timeout=3000)
+                        log.append(f'Email: {sel}')
+                        email_done = True
                         break
                     except:
                         continue
+                if not email_done and all_inputs:
+                    all_inputs[0].fill(MAILJET_EMAIL)
+                    log.append('Email via first input')
 
                 # Fill password
-                for sel in ['input[type="password"]', 'input[name="password"]', '#password']:
+                for sel in ['input[type="password"]', 'input[name="password"]', 'input[name="_password"]']:
                     try:
-                        page.fill(sel, MAILJET_PASSWORD, timeout=5000)
-                        log.append(f'Password filled: {sel}')
+                        page.fill(sel, MAILJET_PASSWORD, timeout=3000)
+                        log.append(f'Password: {sel}')
                         break
                     except:
                         continue
 
-                # Submit - try all buttons
-                page.wait_for_timeout(1000)
-                buttons = page.query_selector_all('button')
-                log.append(f'Found {len(buttons)} buttons on page')
-                for i, btn in enumerate(buttons):
-                    log.append(f'Button {i}: text={btn.inner_text()[:30]} type={btn.get_attribute("type")}')
-                
-                submitted = False
-                for sel in ['text=Log in to Mailjet', 'button[type="submit"]', 'button:has-text("Sign in")', 'button:has-text("Log in")', 'button:has-text("Login")', 'button:has-text("Sign")', 'button:has-text("Log")']:
+                # Click login button
+                page.wait_for_timeout(500)
+                login_clicked = False
+                for sel in ['text=Log in to Mailjet', 'button[type="submit"]', 'input[type="submit"]']:
                     try:
-                        page.click(sel, timeout=3000)
-                        log.append(f'Submitted: {sel}')
-                        submitted = True
+                        page.click(sel, timeout=5000)
+                        log.append(f'Clicked: {sel}')
+                        login_clicked = True
                         break
                     except:
                         continue
-                
-                if not submitted and buttons:
-                    buttons[-1].click()
-                    log.append('Clicked last button as fallback')
 
-                page.wait_for_timeout(5000)
                 page.wait_for_load_state('networkidle', timeout=30000)
-                log.append(f'After login: {page.url} | Title: {page.title()}')
-                
-                if 'signin' in page.url or 'login' in page.url:
-                    log.append('WARNING: Still on login page - login may have failed!')
-                    # Check for error messages
-                    errors = page.query_selector_all('.error, .alert, [class*="error"], [class*="alert"]')
-                    for err in errors:
-                        log.append(f'Page error: {err.inner_text()[:100]}')
+                log.append(f'After login: {page.url}')
 
-                # Go to templates
+                if 'signin' in page.url:
+                    raise Exception(f'Login failed - still on signin page. Check credentials.')
+
+                                # Go to templates
                 page.goto('https://app.mailjet.com/templates/marketing', timeout=30000)
                 page.wait_for_load_state('networkidle', timeout=30000)
                 log.append(f'Templates page: {page.title()}')
