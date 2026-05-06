@@ -25,17 +25,12 @@
   .big-btn { display: block; width: 100%; padding: 14px; background: #2d2d2d; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 1rem; }
   .big-btn:hover { background: #444; }
   .big-btn:disabled { background: #bbb; cursor: not-allowed; }
-  #log { background: #1a1a1a; color: #00e87a; font-family: monospace; font-size: 12px; padding: 1rem; border-radius: 8px; min-height: 60px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; margin-top: 1rem; display: none; }
-  .downloads { margin-top: 1.5rem; display: none; }
-  .downloads h3 { font-size: 14px; font-weight: 600; color: #1a8a4a; margin-bottom: 12px; }
-  .download-item { background: #f0f9f0; border: 1px solid #b0e0b0; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .download-item .dname { font-size: 13px; font-weight: 600; }
-  .dl-btn { padding: 7px 16px; background: #1a8a4a; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-  .dl-btn:hover { background: #157a40; }
-  .instructions { background: #e8f4fd; border: 1px solid #b0d0f0; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1rem; display: none; }
-  .instructions h3 { font-size: 14px; font-weight: 600; color: #1a6fa8; margin-bottom: 8px; }
-  .instructions ol { font-size: 13px; color: #333; line-height: 2; padding-left: 1.2rem; }
+  #log { background: #1a1a1a; color: #00e87a; font-family: monospace; font-size: 12px; padding: 1rem; border-radius: 8px; min-height: 60px; max-height: 260px; overflow-y: auto; white-space: pre-wrap; margin-top: 1rem; display: none; }
+  .success-box { background: #e8fdf0; border: 1px solid #a0d8b0; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1rem; display: none; }
+  .success-box h3 { font-size: 14px; color: #1a8a4a; margin-bottom: 6px; }
+  .success-box p { font-size: 13px; color: #333; line-height: 1.6; }
   .empty { font-size: 13px; color: #bbb; padding: 8px 0; }
+  .progress { font-size: 13px; color: #888; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -51,33 +46,20 @@
   </div>
 
   <button class="big-btn" id="createBtn" onclick="runAutomation()" disabled>
-    Generate Email Templates
+    Create New Templates in Mailjet
   </button>
 
   <div id="log"></div>
 
-  <div class="downloads" id="downloads">
-    <h3>✅ Templates Ready — Download & Import into Mailjet</h3>
-    <div id="download-list"></div>
+  <div class="success-box" id="successBox">
+    <h3>✅ Done!</h3>
+    <p id="successText"></p>
   </div>
-
-  <div class="instructions" id="instructions">
-    <h3>📥 How to import into Mailjet</h3>
-    <ol>
-      <li>Download each HTML file above</li>
-      <li>Go to <strong>Mailjet → Content → Email Templates</strong></li>
-      <li>Click <strong>"Create a template"</strong></li>
-      <li>Choose <strong>"By coding it in HTML"</strong></li>
-      <li>Choose <strong>"Import HTML from a file"</strong></li>
-      <li>Upload the downloaded file & name it after the event</li>
-      <li>Save — your template is ready! 🎉</li>
-    </ol>
-  </div>
-
 </div>
+
 <script>
 let parsedEvents = [];
-let generatedFiles = {};
+let pollInterval = null;
 
 function log(msg) {
   const el = document.getElementById('log');
@@ -96,12 +78,12 @@ function renderEvents() {
   if (!parsedEvents.length) { c.innerHTML = '<p class="empty">No events found.</p>'; return; }
   c.innerHTML = parsedEvents.map((e, i) => {
     const s = e.status.toLowerCase();
-    const bc = s === 'new' ? 'badge-new' : s === 'done' ? 'badge-done' : 'badge-skipped';
-    const bl = s === 'new' ? 'New' : s === 'done' ? 'Done' : s || '—';
+    const bc = s==='new'?'badge-new':s==='done'?'badge-done':'badge-skipped';
+    const bl = s==='new'?'New':s==='done'?'Done':s||'—';
     return `<div class="event-row" id="erow-${i}">
       <div>
-        <div class="name">${e.name || 'Untitled'}</div>
-        <div class="meta">${e.month} · ${e.date} ${e.time ? '| ' + e.time : ''}</div>
+        <div class="name">${e.name||'Untitled'}</div>
+        <div class="meta">${e.month} · ${e.date} ${e.time?'| '+e.time:''}</div>
       </div>
       <span class="badge ${bc}" id="badge-${i}">${bl}</span>
     </div>`;
@@ -118,97 +100,94 @@ async function loadEvents() {
     const newCount = parsedEvents.filter(e => e.status.toLowerCase() === 'new').length;
     document.getElementById('createBtn').disabled = newCount === 0;
   } catch(e) {
-    document.getElementById('events-list').innerHTML =
-      '<p style="color:red;font-size:13px;">Could not load events: ' + e.message + '</p>';
+    document.getElementById('events-list').innerHTML = '<p style="color:red;font-size:13px;">Could not load events: ' + e.message + '</p>';
   }
 }
 
-function downloadFile(filename, html) {
-  const blob = new Blob([html], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+async function pollStatus(jobId, total) {
+  try {
+    const res = await fetch('/api/status/' + jobId);
+    const data = await res.json();
+    if (!data.success) return;
+
+    const results = data.results || [];
+    log('Progress: ' + results.length + '/' + total + ' processed...');
+
+    results.forEach(r => {
+      parsedEvents.forEach((e, i) => {
+        if (e.name === r.name) {
+          if (r.status === 'success') setBadge(i, 'done', 'Done ✓');
+          else setBadge(i, 'error', 'Error');
+        }
+      });
+    });
+
+    if (data.status === 'done') {
+      clearInterval(pollInterval);
+      const success = results.filter(r => r.status === 'success');
+      const failed = results.filter(r => r.status === 'error');
+
+      log('\n🎉 Done! ' + success.length + ' created, ' + failed.length + ' failed.');
+      failed.forEach(r => log('❌ ' + r.name + ': ' + (r.error || '')));
+
+      if (success.length) {
+        document.getElementById('successBox').style.display = 'block';
+        document.getElementById('successText').innerHTML =
+          '<strong>' + success.length + ' template(s)</strong> created in Mailjet: <em>' +
+          success.map(r=>r.name).join(', ') + '</em>.<br><br>' +
+          'Go to <strong>Content → Email Templates</strong> in Mailjet to find them.';
+      }
+
+      document.getElementById('createBtn').disabled = false;
+      document.getElementById('createBtn').textContent = 'Create New Templates in Mailjet';
+    }
+  } catch(e) {
+    log('Poll error: ' + e.message);
+  }
 }
 
 async function runAutomation() {
   const btn = document.getElementById('createBtn');
   btn.disabled = true;
-  btn.textContent = 'Generating templates...';
+  btn.textContent = 'Working... (this may take a few minutes)';
   document.getElementById('log').textContent = '';
   document.getElementById('log').style.display = 'block';
-  document.getElementById('downloads').style.display = 'none';
-  document.getElementById('instructions').style.display = 'none';
+  document.getElementById('successBox').style.display = 'none';
 
   parsedEvents.forEach((e, i) => {
     if (e.status.toLowerCase() === 'new') setBadge(i, 'processing', 'Processing...');
   });
 
-  log('Reading Google Sheet and generating templates...\n');
+  log('Starting automation...\n');
 
   try {
     const res = await fetch('/api/run', { method: 'POST' });
     const data = await res.json();
-    if (!data.success) throw new Error(data.error);
 
-    if (data.message) {
-      log(data.message);
-      btn.textContent = 'Generate Email Templates';
+    if (!data.success) {
+      log('❌ Error: ' + data.error);
       btn.disabled = false;
+      btn.textContent = 'Create New Templates in Mailjet';
       return;
     }
 
-    const success = [], failed = [];
-    const dlList = document.getElementById('download-list');
-    dlList.innerHTML = '';
-
-    data.results.forEach((r, i) => {
-      if (r.status === 'success') {
-        log('✅ Generated: "' + r.name + '"');
-        success.push(r);
-
-        // Add download button
-        const div = document.createElement('div');
-        div.className = 'download-item';
-        div.innerHTML = `
-          <div class="dname">${r.name}</div>
-          <button class="dl-btn" onclick="downloadFile('${r.filename}', generatedFiles['${r.filename}'])">
-            ⬇ Download
-          </button>`;
-        dlList.appendChild(div);
-        generatedFiles[r.filename] = r.html;
-
-        // Update badge
-        parsedEvents.forEach((e, idx) => {
-          if (e.name === r.name) setBadge(idx, 'done', 'Done ✓');
-        });
-      } else {
-        log('❌ Failed: "' + r.name + '" — ' + r.error);
-        failed.push(r.name);
-        parsedEvents.forEach((e, idx) => {
-          if (e.name === r.name) setBadge(idx, 'error', 'Error');
-        });
-      }
-    });
-
-    log('\n' + success.length + ' template(s) generated, ' + failed.length + ' failed.');
-
-    if (success.length) {
-      document.getElementById('downloads').style.display = 'block';
-      document.getElementById('instructions').style.display = 'block';
+    if (data.message) {
+      log('ℹ️ ' + data.message);
+      btn.disabled = false;
+      btn.textContent = 'Create New Templates in Mailjet';
+      return;
     }
 
-  } catch(e) {
-    log('Error: ' + e.message);
-    parsedEvents.forEach((ev, i) => {
-      if (ev.status.toLowerCase() === 'new') setBadge(i, 'error', 'Error');
-    });
-  }
+    log('Job started! ID: ' + data.job_id + ' | Processing ' + data.total + ' event(s)...');
+    log('Please wait — logging into Mailjet and importing templates...\n');
 
-  btn.textContent = 'Generate Email Templates';
-  btn.disabled = false;
+    pollInterval = setInterval(() => pollStatus(data.job_id, data.total), 5000);
+
+  } catch(e) {
+    log('❌ Error: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'Create New Templates in Mailjet';
+  }
 }
 
 loadEvents();
