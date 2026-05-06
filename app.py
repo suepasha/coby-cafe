@@ -5,21 +5,17 @@ import io
 import re
 import os
 import tempfile
+import threading
+import time
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__)
 
-@app.errorhandler(Exception)
-def handle_exception(e):
-    return jsonify({'success': False, 'error': str(e)}), 500
-
-# Mailjet API
 MAILJET_API_KEY    = os.environ.get('MAILJET_API_KEY', '3b7ed6fa7e4d7e777bb144c487625b06')
 MAILJET_SECRET_KEY = os.environ.get('MAILJET_SECRET_KEY', '8a3a0f2e26c51aadaacfcd250b3126cf')
 MJ_AUTH = (MAILJET_API_KEY, MAILJET_SECRET_KEY)
 MJ_BASE = "https://api.mailjet.com/v3/REST"
 
-# Mailjet login
 MAILJET_EMAIL    = os.environ.get('MAILJET_EMAIL', 'suepasha@yahoo.com')
 MAILJET_PASSWORD = os.environ.get('MAILJET_PASSWORD', 'Suepasha070!')
 
@@ -30,6 +26,9 @@ SHEET_CSV_URL = (
 )
 
 APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoRuw5zraZ_g-g3BioEbReo-m_e_N_glPikd8eJrGmsCe-Pr__cjR4_UX84ZxudQhR/exec"
+
+# Job tracking
+jobs = {}
 
 ALIASES = {
     'name':        ['event name'],
@@ -86,10 +85,10 @@ def parse_csv(text):
         })
     return events
 
-def format_datetime(date, time):
+def format_datetime(date, time_str):
     date = re.sub(r'^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s*', '', date, flags=re.IGNORECASE).strip()
-    if time:
-        return f"{date} | {time}"
+    if time_str:
+        return f"{date} | {time_str}"
     return date
 
 def get_base_html():
@@ -121,10 +120,9 @@ def fill_template(html, event):
     out = out.replace('{{var:signup_text1}}', txt1)
     out = out.replace('{{var:signup_link1}}', lnk1)
     out = out.replace('{{var:signup_text2}}', txt2)
-    out = out.replace('{{var:signup_link2}}', lnk2)
+    out = out.replace('{{var:signup_link2}}', lnk2 if lnk2 else '#')
     if image and image.startswith('http'):
         out = out.replace('{{var:image}}', image)
-
     return out
 
 def mark_done(event_name):
@@ -133,128 +131,86 @@ def mark_done(event_name):
     except Exception:
         pass
 
-def import_template_to_mailjet(html_content, template_name):
-    """Use Playwright to log into Mailjet and import HTML as a template."""
-    from playwright.sync_api import sync_playwright
+def run_playwright_import(job_id, event_name, html_content, template_name):
+    """Run in background thread."""
     log = []
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context()
-        page = context.new_page()
-        try:
-            log.append('Going to signin page...')
-            page.goto('https://app.mailjet.com/signin', timeout=30000)
-            page.wait_for_load_state('networkidle', timeout=30000)
-            log.append(f'Page title: {page.title()}')
-            log.append('Filling email...')
-            page.fill('input[type="email"]', MAILJET_EMAIL, timeout=10000)
-            log.append('Filling password...')
-            page.fill('input[type="password"]', MAILJET_PASSWORD, timeout=10000)
-            log.append('Clicking submit...')
-            page.click('button[type="submit"]', timeout=10000)
-            page.wait_for_load_state('networkidle', timeout=30000)
-            log.append(f'After login title: {page.title()}')
-            log.append('Going to templates page...')
-            page.goto('https://app.mailjet.com/templates/marketing', timeout=30000)
-            page.wait_for_load_state('networkidle', timeout=30000)
-            log.append(f'Templates page title: {page.title()}')
-            log.append('Clicking Create a template...')
-            page.click('text=Create a template', timeout=15000)
-            page.wait_for_load_state('networkidle', timeout=30000)
-            log.append('Clicking By coding it in HTML...')
-            page.click('text=By coding it in HTML', timeout=15000)
-            page.wait_for_load_state('networkidle', timeout=30000)
-            log.append('Clicking Import HTML from a file...')
-            page.click('text=Import HTML from a file', timeout=15000)
-            page.wait_for_load_state('networkidle', timeout=30000)
-            log.append('Uploading file...')
-            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w') as f:
-                f.write(html_content)
-                tmp_path = f.name
-            page.set_input_files('input[type="file"]', tmp_path, timeout=10000)
-            os.unlink(tmp_path)
-            log.append('Entering template name...')
-            name_input = page.query_selector('input[placeholder*="name"], input[name*="name"], #template-name')
-            if name_input:
-                name_input.fill(template_name)
-            log.append('Clicking Continue...')
-            page.click('text=Continue', timeout=10000)
-            page.wait_for_load_state('networkidle', timeout=30000)
-            log.append('Done!')
-            browser.close()
-            return True, ' | '.join(log)
-        except Exception as e:
-            log.append(f'ERROR: {str(e)}')
-            try:
-                browser.close()
-            except:
-                pass
-            return False, ' | '.join(log)
-
-
-def mark_done(event_name):
     try:
-        requests.post(APPS_SCRIPT_URL, json={'eventName': event_name}, timeout=10)
-    except Exception:
-        pass
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            try:
+                log.append('Logging into Mailjet...')
+                page.goto('https://app.mailjet.com/signin', timeout=30000)
+                page.wait_for_load_state('networkidle', timeout=30000)
+                page.fill('input[type="email"]', MAILJET_EMAIL, timeout=10000)
+                page.fill('input[type="password"]', MAILJET_PASSWORD, timeout=10000)
+                page.click('button[type="submit"]', timeout=10000)
+                page.wait_for_load_state('networkidle', timeout=30000)
+                log.append(f'Logged in. Page: {page.title()}')
 
-def import_template_to_mailjet(html_content, template_name):
-    """Use Playwright to log into Mailjet and import HTML as a template."""
-    from playwright.sync_api import sync_playwright
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context()
-        page = context.new_page()
+                page.goto('https://app.mailjet.com/templates/marketing', timeout=30000)
+                page.wait_for_load_state('networkidle', timeout=30000)
+                log.append(f'Templates page: {page.title()}')
 
+                page.click('text=Create a template', timeout=15000)
+                page.wait_for_load_state('networkidle', timeout=30000)
+                log.append('Clicked Create template')
+
+                page.click('text=By coding it in HTML', timeout=15000)
+                page.wait_for_load_state('networkidle', timeout=30000)
+                log.append('Clicked HTML option')
+
+                page.click('text=Import HTML from a file', timeout=15000)
+                page.wait_for_load_state('networkidle', timeout=30000)
+                log.append('Clicked Import from file')
+
+                with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w') as f:
+                    f.write(html_content)
+                    tmp_path = f.name
+
+                page.set_input_files('input[type="file"]', tmp_path, timeout=10000)
+                os.unlink(tmp_path)
+                log.append('File uploaded')
+
+                name_input = page.query_selector('input[placeholder*="name"], input[name*="name"], #template-name')
+                if name_input:
+                    name_input.fill(template_name)
+                    log.append('Name entered')
+
+                page.click('text=Continue', timeout=10000)
+                page.wait_for_load_state('networkidle', timeout=30000)
+                log.append('Done!')
+
+                browser.close()
+                jobs[job_id] = {'status': 'success', 'name': event_name, 'log': ' | '.join(log)}
+                mark_done(event_name)
+
+            except Exception as e:
+                log.append(f'ERROR: {str(e)}')
+                try:
+                    browser.close()
+                except:
+                    pass
+                jobs[job_id] = {'status': 'error', 'name': event_name, 'error': ' | '.join(log)}
+
+    except Exception as e:
+        jobs[job_id] = {'status': 'error', 'name': event_name, 'error': str(e)}
+
+def run_all_events_background(job_id, new_events, base_html):
+    results = []
+    for event in new_events:
+        event_name = event['name']
         try:
-            # Login to Mailjet
-            page.goto('https://app.mailjet.com/signin')
-            page.wait_for_load_state('networkidle')
-            page.fill('input[type="email"], input[name="email"], #email', MAILJET_EMAIL)
-            page.fill('input[type="password"], input[name="password"], #password', MAILJET_PASSWORD)
-            page.click('button[type="submit"], input[type="submit"], .btn-primary')
-            page.wait_for_load_state('networkidle')
-
-            # Go to Email Templates
-            page.goto('https://app.mailjet.com/templates/marketing')
-            page.wait_for_load_state('networkidle')
-
-            # Click Create a template
-            page.click('text=Create a template', timeout=10000)
-            page.wait_for_load_state('networkidle')
-
-            # Click By coding it in HTML
-            page.click('text=By coding it in HTML', timeout=10000)
-            page.wait_for_load_state('networkidle')
-
-            # Click Import HTML from a file
-            page.click('text=Import HTML from a file', timeout=10000)
-            page.wait_for_load_state('networkidle')
-
-            # Save HTML to temp file and upload
-            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w') as f:
-                f.write(html_content)
-                tmp_path = f.name
-
-            # Upload the file
-            page.set_input_files('input[type="file"]', tmp_path)
-            os.unlink(tmp_path)
-
-            # Enter template name
-            name_input = page.query_selector('input[placeholder*="name"], input[name*="name"], #template-name')
-            if name_input:
-                name_input.fill(template_name)
-
-            # Click Continue or Save
-            page.click('text=Continue, text=Save, button[type="submit"]', timeout=10000)
-            page.wait_for_load_state('networkidle')
-
-            browser.close()
-            return True, None
-
+            filled = fill_template(base_html, event)
+            sub_job_id = f"{job_id}_{event_name}"
+            jobs[sub_job_id] = {'status': 'processing', 'name': event_name}
+            run_playwright_import(sub_job_id, event_name, filled, event_name)
+            result = jobs.get(sub_job_id, {})
+            results.append({'name': event_name, 'status': result.get('status', 'error'), 'error': result.get('error', result.get('log', ''))})
         except Exception as e:
-            browser.close()
-            return False, str(e)
+            results.append({'name': event_name, 'status': 'error', 'error': str(e)})
+    jobs[job_id] = {'status': 'done', 'results': results}
 
 @app.route('/api/test', methods=['GET'])
 def test_playwright():
@@ -287,7 +243,6 @@ def get_events():
 @app.route('/api/run', methods=['POST'])
 def run_automation():
     try:
-        # Load sheet
         res = requests.get(SHEET_CSV_URL, timeout=15)
         res.raise_for_status()
         events = parse_csv(res.text)
@@ -296,32 +251,29 @@ def run_automation():
         if not new_events:
             return jsonify({'success': True, 'results': [], 'message': 'No new events found.'})
 
-        # Get base HTML
         base_html, error = get_base_html()
         if error:
             return jsonify({'success': False, 'error': error}), 500
 
-        results = []
-        for event in new_events:
-            event_name = event['name']
-            try:
-                filled = fill_template(base_html, event)
+        job_id = str(int(time.time()))
+        jobs[job_id] = {'status': 'running'}
 
-                # Use Playwright to import into Mailjet
-                success, err = import_template_to_mailjet(filled, event_name)
+        # Run in background thread
+        t = threading.Thread(target=run_all_events_background, args=(job_id, new_events, base_html))
+        t.daemon = True
+        t.start()
 
-                if not success:
-                    results.append({'name': event_name, 'status': 'error', 'error': err})
-                    continue
+        # Wait up to 300 seconds for completion
+        for _ in range(300):
+            time.sleep(1)
+            if jobs.get(job_id, {}).get('status') == 'done':
+                break
 
-                # Mark as Done in Google Sheet
-                mark_done(event_name)
-                results.append({'name': event_name, 'status': 'success'})
-
-            except Exception as ex:
-                results.append({'name': event_name, 'status': 'error', 'error': str(ex)})
-
-        return jsonify({'success': True, 'results': results})
+        job = jobs.get(job_id, {})
+        if job.get('status') == 'done':
+            return jsonify({'success': True, 'results': job.get('results', [])})
+        else:
+            return jsonify({'success': False, 'error': 'Timeout waiting for automation to complete.'})
 
     except Exception as ex:
         return jsonify({'success': False, 'error': str(ex)}), 500
