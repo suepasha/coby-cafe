@@ -12,16 +12,22 @@
   h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
   .subtitle { font-size: 13px; color: #999; }
   .card { background: #fff; border-radius: 12px; border: 1px solid #e5e5e0; padding: 1.5rem; margin-bottom: 1.25rem; }
-  .card h2 { font-size: 13px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1rem; }
-  .event-row { border: 1px solid #eee; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .card-header h2 { font-size: 13px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+  .select-all { font-size: 12px; color: #1a6fa8; cursor: pointer; background: none; border: none; padding: 0; }
+  .select-all:hover { text-decoration: underline; }
+  .event-row { border: 1px solid #eee; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: background 0.15s; }
+  .event-row:hover { background: #fafafa; }
+  .event-row input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; accent-color: #2d2d2d; }
+  .event-info { flex: 1; }
   .name { font-size: 14px; font-weight: 600; }
   .meta { font-size: 12px; color: #999; margin-top: 2px; }
-  .badge { font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 20px; white-space: nowrap; }
+  .badge { font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
   .badge-new { background: #e8f4fd; color: #1a6fa8; }
   .badge-done { background: #e8fdf0; color: #1a8a4a; }
   .badge-error { background: #fde8e8; color: #a01010; }
   .badge-skipped { background: #f0f0f0; color: #888; }
-  .big-btn { display: block; width: 100%; padding: 14px; background: #2d2d2d; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 1rem; }
+  .big-btn { display: block; width: 100%; padding: 14px; background: #2d2d2d; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 1rem; transition: background 0.2s; }
   .big-btn:hover { background: #444; }
   .big-btn:disabled { background: #bbb; cursor: not-allowed; }
   #log { background: #1a1a1a; color: #00e87a; font-family: monospace; font-size: 12px; padding: 1rem; border-radius: 8px; min-height: 60px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; margin-top: 1rem; display: none; }
@@ -33,8 +39,9 @@
   .dl-btn:hover { background: #444; }
   .instructions { background: #e8f4fd; border: 1px solid #b0d0f0; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1rem; }
   .instructions h3 { font-size: 14px; font-weight: 600; color: #1a6fa8; margin-bottom: 8px; }
-  .instructions ol { font-size: 13px; color: #333; line-height: 2; padding-left: 1.2rem; }
+  .instructions ol { font-size: 13px; color: #333; line-height: 2.2; padding-left: 1.2rem; }
   .empty { font-size: 13px; color: #bbb; padding: 8px 0; }
+  .event-row.done { opacity: 0.5; }
 </style>
 </head>
 <body>
@@ -45,7 +52,10 @@
   </div>
 
   <div class="card">
-    <h2>📋 Upcoming Events</h2>
+    <div class="card-header">
+      <h2>📋 Upcoming Events</h2>
+      <button class="select-all" onclick="toggleAll()" id="selectAllBtn">Deselect All</button>
+    </div>
     <div id="events-list"><p class="empty">Loading events...</p></div>
   </div>
 
@@ -56,17 +66,15 @@
   <div id="log"></div>
 
   <div class="downloads" id="downloads">
-    <h3>📥 Step 1 — Download your HTML files</h3>
+    <h3>📥 Download your MJML files</h3>
     <div id="download-list"></div>
-
-    <div class="instructions" style="margin-top:1rem;">
-      <h3>📤 Step 2 — Import into Mailjet</h3>
+    <div class="instructions">
+      <h3>📤 Import into Mailjet</h3>
       <ol>
         <li>Go to <strong>Mailjet → Content → Email Templates</strong></li>
         <li>Click <strong>"Create a template"</strong></li>
-        <li>Choose <strong>"By coding it in HTML"</strong></li>
-        <li>Choose <strong>"Import MJML file"</strong></li>
-        <li>Upload the downloaded .mjml file & name it after the event</li>
+        <li>Choose <strong>"By coding it in MJML"</strong></li>
+        <li>Import the downloaded <strong>.mjml</strong> file</li>
         <li>Save — drag-and-drop editing works! 🎉</li>
       </ol>
     </div>
@@ -74,36 +82,67 @@
 </div>
 
 <script>
-let parsedEvents = [];
+let events = [];
 let generatedFiles = {};
 
-function log(msg) {
+const log = msg => {
   const el = document.getElementById('log');
   el.style.display = 'block';
   el.textContent += msg + '\n';
   el.scrollTop = el.scrollHeight;
-}
+};
 
-function setBadge(i, type, label) {
-  const el = document.getElementById('badge-' + i);
+const setBadge = (name, type, label) => {
+  const el = document.getElementById('badge-' + name.replace(/[^a-z0-9]/gi, '_'));
   if (el) { el.className = 'badge badge-' + type; el.textContent = label; }
+};
+
+const getSelected = () => events
+  .filter(e => e.status.toLowerCase() === 'new')
+  .filter(e => document.getElementById('chk-' + e.name.replace(/[^a-z0-9]/gi, '_'))?.checked)
+  .map(e => e.name);
+
+const updateBtn = () => {
+  document.getElementById('generateBtn').disabled = getSelected().length === 0;
+};
+
+function toggleAll() {
+  const newEvents = events.filter(e => e.status.toLowerCase() === 'new');
+  const allChecked = newEvents.every(e => document.getElementById('chk-' + e.name.replace(/[^a-z0-9]/gi, '_'))?.checked);
+  newEvents.forEach(e => {
+    const chk = document.getElementById('chk-' + e.name.replace(/[^a-z0-9]/gi, '_'));
+    if (chk) chk.checked = !allChecked;
+  });
+  document.getElementById('selectAllBtn').textContent = allChecked ? 'Select All' : 'Deselect All';
+  updateBtn();
 }
 
 function renderEvents() {
   const c = document.getElementById('events-list');
-  if (!parsedEvents.length) { c.innerHTML = '<p class="empty">No events found.</p>'; return; }
-  c.innerHTML = parsedEvents.map((e, i) => {
+  if (!events.length) { c.innerHTML = '<p class="empty">No events found.</p>'; return; }
+
+  c.innerHTML = events.map(e => {
     const s = e.status.toLowerCase();
-    const bc = s==='new'?'badge-new':s==='done'?'badge-done':'badge-skipped';
-    const bl = s==='new'?'New':s==='done'?'Done':s||'—';
-    return `<div class="event-row" id="erow-${i}">
-      <div>
-        <div class="name">${e.name||'Untitled'}</div>
-        <div class="meta">${e.month} · ${e.date} ${e.time?'| '+e.time:''}</div>
+    const isNew = s === 'new';
+    const bc = isNew ? 'badge-new' : s === 'done' ? 'badge-done' : 'badge-skipped';
+    const bl = isNew ? 'New' : s === 'done' ? 'Done' : s || '—';
+    const safeId = e.name.replace(/[^a-z0-9]/gi, '_');
+    return `<div class="event-row${!isNew ? ' done' : ''}" onclick="${isNew ? `toggleCheck('${safeId}')` : ''}">
+      ${isNew ? `<input type="checkbox" id="chk-${safeId}" checked onchange="updateBtn()" onclick="event.stopPropagation()">` : '<input type="checkbox" disabled>'}
+      <div class="event-info">
+        <div class="name">${e.name || 'Untitled'}</div>
+        <div class="meta">${e.date}${e.time ? ' | ' + e.time : ''}</div>
       </div>
-      <span class="badge ${bc}" id="badge-${i}">${bl}</span>
+      <span class="badge ${bc}" id="badge-${safeId}">${bl}</span>
     </div>`;
   }).join('');
+
+  updateBtn();
+}
+
+function toggleCheck(safeId) {
+  const chk = document.getElementById('chk-' + safeId);
+  if (chk && !chk.disabled) { chk.checked = !chk.checked; updateBtn(); }
 }
 
 async function loadEvents() {
@@ -111,18 +150,15 @@ async function loadEvents() {
     const res = await fetch('/api/events');
     const data = await res.json();
     if (!data.success) throw new Error(data.error);
-    parsedEvents = data.events;
+    events = data.events;
     renderEvents();
-    const newCount = parsedEvents.filter(e => e.status.toLowerCase() === 'new').length;
-    document.getElementById('generateBtn').disabled = newCount === 0;
   } catch(e) {
-    document.getElementById('events-list').innerHTML = '<p style="color:red;font-size:13px;">Error: ' + e.message + '</p>';
+    document.getElementById('events-list').innerHTML = `<p style="color:red;font-size:13px;">Error: ${e.message}</p>`;
   }
 }
 
 function downloadFile(filename) {
-  const html = generatedFiles[filename];
-  const blob = new Blob([html], {type: 'text/html'});
+  const blob = new Blob([generatedFiles[filename]], {type: 'text/xml'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = filename; a.click();
@@ -130,6 +166,9 @@ function downloadFile(filename) {
 }
 
 async function runAutomation() {
+  const selected = getSelected();
+  if (!selected.length) return;
+
   const btn = document.getElementById('generateBtn');
   btn.disabled = true;
   btn.textContent = 'Generating...';
@@ -138,50 +177,49 @@ async function runAutomation() {
   document.getElementById('downloads').style.display = 'none';
   generatedFiles = {};
 
-  parsedEvents.forEach((e, i) => {
-    if (e.status.toLowerCase() === 'new') setBadge(i, 'badge-new', 'Processing...');
-  });
-
-  log('Reading Google Sheet and generating templates...');
+  log(`Generating ${selected.length} template(s)...`);
 
   try {
-    const res = await fetch('/api/run', {method: 'POST'});
+    const res = await fetch('/api/run', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({selected})
+    });
     const data = await res.json();
 
-    if (!data.success) { log('❌ Error: ' + data.error); btn.disabled = false; btn.textContent = 'Generate Email Templates'; return; }
-    if (data.message) { log('ℹ️ ' + data.message); btn.disabled = false; btn.textContent = 'Generate Email Templates'; return; }
+    if (!data.success) { log('❌ ' + data.error); return; }
+    if (data.message) { log('ℹ️ ' + data.message); return; }
 
     const dlList = document.getElementById('download-list');
     dlList.innerHTML = '';
     let successCount = 0;
 
     data.results.forEach(r => {
-      parsedEvents.forEach((e, i) => {
-        if (e.name === r.name) setBadge(i, r.status === 'success' ? 'done' : 'error', r.status === 'success' ? 'Done ✓' : 'Error');
-      });
-
+      const safeId = r.name.replace(/[^a-z0-9]/gi, '_');
       if (r.status === 'success') {
-        log('✅ Generated: ' + r.name);
-        generatedFiles[r.filename] = r.html;
+        log('✅ ' + r.name);
+        generatedFiles[r.filename] = r.mjml;
         successCount++;
+        setBadge(r.name, 'done', 'Ready ✓');
         const div = document.createElement('div');
         div.className = 'download-item';
         div.innerHTML = `<div class="dname">${r.name}</div><button class="dl-btn" onclick="downloadFile('${r.filename}')">⬇ Download</button>`;
         dlList.appendChild(div);
       } else {
-        log('❌ Failed: ' + r.name + ' — ' + r.error);
+        log('❌ ' + r.name + ': ' + r.error);
+        setBadge(r.name, 'error', 'Error');
       }
     });
 
-    log('\n' + successCount + ' template(s) ready for download!');
+    log(`\n✅ ${successCount} template(s) ready!`);
     if (successCount > 0) document.getElementById('downloads').style.display = 'block';
 
   } catch(e) {
-    log('❌ Error: ' + e.message);
+    log('❌ ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Generate Email Templates';
   }
-
-  btn.disabled = false;
-  btn.textContent = 'Generate Email Templates';
 }
 
 loadEvents();
