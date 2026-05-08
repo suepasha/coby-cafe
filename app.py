@@ -80,33 +80,29 @@ MJML_EVENT_SECTION = """
           <p style="font-family:'Josefin Sans',Arial,sans-serif !important;font-size:22px;font-weight:bold;text-align:center;color:#000000;line-height:30px;margin:5px 20px;"><strong>EVENT_DATE</strong></p>
           <p style="font-family:'Josefin Sans',Arial,sans-serif !important;font-size:19px;font-weight:normal;text-align:center;color:#000000;line-height:28px;margin:8px 30px;">EVENT_DESCRIPTION</p>
         </mj-text>
-        <mj-button href="SIGNUP_LINK1"
-          align="center"
-          background-color="#FFFFFF"
-          color="#000000"
-          border="1px solid #000000"
-          border-radius="10px"
-          font-family="'Josefin Sans',Arial,sans-serif"
-          font-size="19px"
-          font-weight="bold"
-          padding="8px 25px"
-          inner-padding="12px 60px">SIGNUP_TEXT1</mj-button>
+        <mj-text align="center" padding="8px 25px">
+          <table align="center" border="0" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+            <tr>
+              <td align="center" style="border:1px solid #000000;border-radius:10px;padding:12px 40px;background-color:#FFFFFF;">
+                <a href="SIGNUP_LINK1" style="font-family:'Josefin Sans',Arial,sans-serif;font-size:19px;font-weight:bold;color:#000000;text-decoration:none;display:inline-block;white-space:nowrap;">SIGNUP_TEXT1</a>
+              </td>
+            </tr>
+          </table>
+        </mj-text>
         BUTTON2_PLACEHOLDER
         <mj-divider border-color="#E6E6E6" border-style="solid" border-width="2px" padding="10px 25px" width="100%"></mj-divider>
       </mj-column>
     </mj-section>"""
 
-MJML_BUTTON2 = """<mj-button href="SIGNUP_LINK2"
-          align="center"
-          background-color="#FFFFFF"
-          color="#000000"
-          border="1px solid #000000"
-          border-radius="10px"
-          font-family="'Josefin Sans',Arial,sans-serif"
-          font-size="19px"
-          font-weight="bold"
-          padding="5px 25px"
-          inner-padding="12px 60px">SIGNUP_TEXT2</mj-button>"""
+MJML_BUTTON2 = """<mj-text align="center" padding="5px 25px">
+          <table align="center" border="0" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+            <tr>
+              <td align="center" style="border:1px solid #000000;border-radius:10px;padding:12px 40px;background-color:#FFFFFF;">
+                <a href="SIGNUP_LINK2" style="font-family:'Josefin Sans',Arial,sans-serif;font-size:19px;font-weight:bold;color:#000000;text-decoration:none;display:inline-block;white-space:nowrap;">SIGNUP_TEXT2</a>
+              </td>
+            </tr>
+          </table>
+        </mj-text>"""
 
 MJML_CLOSE = """
     <mj-section background-color="#e0d3c3" padding="15px 25px 5px">
