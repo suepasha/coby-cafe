@@ -85,9 +85,8 @@ MJML_EVENT_SECTION = """
           font-family="'Josefin Sans',Arial,sans-serif"
           font-size="16px"
           font-weight="bold"
-          padding="10px 20px"
-          inner-padding="12px 40px"
-          width="280px">SIGNUP_TEXT1</mj-button>
+          padding="8px 25px"
+          inner-padding="12px 60px">SIGNUP_TEXT1</mj-button>
         BUTTON2_PLACEHOLDER
         <mj-divider border-color="#E6E6E6" border-style="solid" border-width="2px" padding="10px 25px" width="100%"></mj-divider>
       </mj-column>
@@ -102,9 +101,8 @@ MJML_BUTTON2 = """<mj-button href="SIGNUP_LINK2"
           font-family="'Josefin Sans',Arial,sans-serif"
           font-size="16px"
           font-weight="bold"
-          padding="5px 20px"
-          inner-padding="12px 40px"
-          width="280px">SIGNUP_TEXT2</mj-button>"""
+          padding="5px 25px"
+          inner-padding="12px 60px">SIGNUP_TEXT2</mj-button>"""
 
 MJML_CLOSE = """
     <mj-section background-color="#e0d3c3" padding="15px 25px 5px">
