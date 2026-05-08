@@ -73,8 +73,7 @@ MJML_EVENT_SECTION = """
         <mj-image align="center" alt="" border-radius="10px" border="none" height="auto" padding="10px 25px 15px" src="EVENT_IMAGE" width="320px" fluid-on-mobile="true"></mj-image>
         <mj-text padding="0px" passport-element="html" width="100%">
           <p style="font-family:'Josefin Sans',Arial,sans-serif;font-size:22px;font-weight:bold;text-align:center;color:#000000;line-height:30px;margin:5px 20px;"><strong>EVENT_DATE</strong></p>
-          <br>
-          <p style="font-family:'Josefin Sans',Arial,sans-serif;font-size:19px;font-weight:normal;text-align:center;color:#000000;line-height:28px;margin:5px 30px;">EVENT_DESCRIPTION</p>
+          <p style="font-family:'Josefin Sans',Arial,sans-serif;font-size:19px;font-weight:normal;text-align:center;color:#000000;line-height:28px;margin:8px 30px;">EVENT_DESCRIPTION</p>
         </mj-text>
         <mj-button href="SIGNUP_LINK1"
           align="center"
