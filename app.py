@@ -39,10 +39,23 @@ ALIASES = {
     'dueDate':     ['due date', 'duedate', 'send date', 'senddate'],
 }
 
-MJML_OPEN = """<mjml dir="ltr" lang="en" owa="desktop" version="4.14.1">
+MJML_OPEN = """<mjml version="4.14.1">
   <mj-head>
     <mj-font href="https://fonts.googleapis.com/css2?family=Josefin%20Sans:wght@300;400;500;700;800;900" name="Josefin Sans, Arial, sans-serif"></mj-font>
     <mj-preview></mj-preview>
+    <mj-style>
+      @media only screen and (max-width: 480px) {
+        .event-title { font-size: 20px !important; line-height: 28px !important; }
+        .event-date  { font-size: 15px !important; line-height: 22px !important; }
+        .event-desc  { font-size: 14px !important; line-height: 20px !important; }
+        .signup-btn  { font-size: 14px !important; padding: 8px 16px !important; }
+        .footer-btn  { font-size: 14px !important; }
+      }
+    </mj-style>
+    <mj-attributes>
+      <mj-all font-family="'Josefin Sans', Arial, sans-serif"></mj-all>
+      <mj-image fluid-on-mobile="true"></mj-image>
+    </mj-attributes>
   </mj-head>
   <mj-body background-color="#ffffff" color="#8b94a7" font-family="Josefin Sans, Arial, sans-serif">
     <mj-section background-color="#ffffff" padding="0px">
@@ -54,19 +67,19 @@ MJML_OPEN = """<mjml dir="ltr" lang="en" owa="desktop" version="4.14.1">
 MJML_EVENT_SECTION = """
     <mj-section background-color="#f4f4f4" padding="5px 0px">
       <mj-column>
-        <mj-text font-family="Verdana, Helvetica, Arial, sans-serif" padding="0px" passport-element="html" width="100%">
-          <p style="font-family:'Josefin Sans',sans-serif;font-size:30px;font-weight:bold;text-align:center;color:#000000;line-height:40px;margin:20px 40px 10px 40px">EVENT_TITLE</p>
+        <mj-text padding="0px">
+          <p class="event-title" style="font-family:'Josefin Sans',Arial,sans-serif;font-size:22px;font-weight:bold;text-align:center;color:#000000;line-height:30px;margin:20px 30px 10px 30px">EVENT_TITLE</p>
         </mj-text>
-        <mj-image align="center" alt="" border-radius="10px" border="none" height="auto" padding="10px 25px 15px" src="EVENT_IMAGE" width="350px"></mj-image>
-        <mj-text font-family="Verdana, Helvetica, Arial, sans-serif" padding="0px" passport-element="html" width="100%">
-          <p style="font-family:'Josefin Sans';font-size:23px;font-weight:normal;text-align:center;color:#000000;line-height:30px;margin:5px 20px"><strong>EVENT_DATE</strong></p>
+        <mj-image align="center" alt="" border-radius="10px" border="none" height="auto" padding="10px 20px 15px" src="EVENT_IMAGE" width="320px" fluid-on-mobile="true"></mj-image>
+        <mj-text padding="0px">
+          <p class="event-date" style="font-family:'Josefin Sans',Arial,sans-serif;font-size:17px;font-weight:bold;text-align:center;color:#000000;line-height:24px;margin:5px 20px">EVENT_DATE</p>
           <br>
-          <p style="font-family:'Josefin Sans',sans-serif;font-size:20px;font-weight:normal;text-align:center;color:#000000;line-height:30px;margin:5px 30px">EVENT_DESCRIPTION</p>
+          <p class="event-desc" style="font-family:'Josefin Sans',Arial,sans-serif;font-size:15px;font-weight:normal;text-align:center;color:#000000;line-height:22px;margin:5px 30px">EVENT_DESCRIPTION</p>
         </mj-text>
-        <mj-text font-family="Verdana, Helvetica, Arial, sans-serif" padding="0px" passport-element="html" width="100%">
+        <mj-text padding="0px">
           <br>
           <p style="text-align:center;margin-top:10px;margin-bottom:5px;">
-            <a href="SIGNUP_LINK1" style="background-color:#FFFFFF;color:#000000;border:1px solid #000000;border-radius:10px;padding:10px 20px;text-decoration:none;font-family:'Josefin Sans',sans-serif;font-size:20px;font-weight:bold;display:inline-block">SIGNUP_TEXT1</a>
+            <a href="SIGNUP_LINK1" class="signup-btn" style="background-color:#FFFFFF;color:#000000;border:1px solid #000000;border-radius:10px;padding:10px 20px;text-decoration:none;font-family:'Josefin Sans',Arial,sans-serif;font-size:15px;font-weight:bold;display:inline-block">SIGNUP_TEXT1</a>
           </p>
         </mj-text>
         BUTTON2_PLACEHOLDER
@@ -76,7 +89,7 @@ MJML_EVENT_SECTION = """
 
 MJML_BUTTON2 = """<mj-text font-family="Verdana, Helvetica, Arial, sans-serif" padding="0px" passport-element="html" width="100%">
           <p style="text-align:center;margin-top:10px;">
-            <a href="SIGNUP_LINK2" style="background-color:#FFFFFF;color:#000000;border:1px solid #000000;border-radius:10px;padding:10px 20px;text-decoration:none;font-family:'Josefin Sans',sans-serif;font-size:20px;font-weight:bold;display:inline-block">SIGNUP_TEXT2</a>
+            <a href="SIGNUP_LINK2" style="background-color:#FFFFFF;color:#000000;border:1px solid #000000;border-radius:10px;padding:10px 20px;text-decoration:none;font-family:'Josefin Sans',Arial,sans-serif;font-size:15px;font-weight:bold;display:inline-block">SIGNUP_TEXT2</a>
           </p>
         </mj-text>"""
 
@@ -84,10 +97,10 @@ MJML_CLOSE = """
     <mj-section background-color="#e0d3c3" padding="15px 25px 5px">
       <mj-column>
         <mj-text font-family="Verdana, Helvetica, Arial, sans-serif" padding="0px" passport-element="html" width="100%">
-          <p style="text-align:center;margin-top:5px;"><a href="mailto:info@cobyscafe.com?subject=An%20idea%20for%20meetups%2Fevents" style="display:inline-block;font-family:'Josefin Sans',sans-serif;font-size:18px;font-weight:bold;text-decoration:none;padding:5px 10px;border-radius:8px;border:1px solid #2D2D2D;color:#2D2D2D;background-color:#ffffff;">Submit an Event Idea</a></p>
-          <p style="text-align:center;margin-top:0px;"><a href="https://www.cobyscafe.com/membership" style="display:inline-block;font-family:'Josefin Sans',sans-serif;font-size:18px;font-weight:bold;text-decoration:none;padding:5px 10px;border-radius:8px;border:1px solid #2D2D2D;color:#2D2D2D;background-color:#ffffff;">Become a Member</a></p>
-          <p style="text-align:center;margin-top:0px;"><a href="https://www.cobyscafe.com/parties" style="display:inline-block;font-family:'Josefin Sans',sans-serif;font-size:18px;font-weight:bold;text-decoration:none;padding:5px 10px;border-radius:8px;border:1px solid #2D2D2D;color:#2D2D2D;background-color:#ffffff;">Host a Party</a></p>
-          <p style="text-align:center;margin-top:0px;"><a href="https://www.google.com/maps/search/?api=1&query=Coby's+Cafe+101+Nickerson+St+Seattle+WA" style="display:inline-block;font-family:'Josefin Sans',sans-serif;font-size:18px;font-weight:bold;text-decoration:none;padding:5px 10px;border-radius:8px;border:1px solid #2D2D2D;color:#2D2D2D;background-color:#ffffff;" target="_blank">Leave a Google Review</a></p>
+          <p style="text-align:center;margin-top:5px;"><a href="mailto:info@cobyscafe.com?subject=An%20idea%20for%20meetups%2Fevents" style="display:inline-block;font-family:'Josefin Sans',sans-serif;font-size:15px;font-weight:bold;text-decoration:none;padding:5px 10px;border-radius:8px;border:1px solid #2D2D2D;color:#2D2D2D;background-color:#ffffff;">Submit an Event Idea</a></p>
+          <p style="text-align:center;margin-top:0px;"><a href="https://www.cobyscafe.com/membership" style="display:inline-block;font-family:'Josefin Sans',sans-serif;font-size:15px;font-weight:bold;text-decoration:none;padding:5px 10px;border-radius:8px;border:1px solid #2D2D2D;color:#2D2D2D;background-color:#ffffff;">Become a Member</a></p>
+          <p style="text-align:center;margin-top:0px;"><a href="https://www.cobyscafe.com/parties" style="display:inline-block;font-family:'Josefin Sans',sans-serif;font-size:15px;font-weight:bold;text-decoration:none;padding:5px 10px;border-radius:8px;border:1px solid #2D2D2D;color:#2D2D2D;background-color:#ffffff;">Host a Party</a></p>
+          <p style="text-align:center;margin-top:0px;"><a href="https://www.google.com/maps/search/?api=1&query=Coby's+Cafe+101+Nickerson+St+Seattle+WA" style="display:inline-block;font-family:'Josefin Sans',sans-serif;font-size:15px;font-weight:bold;text-decoration:none;padding:5px 10px;border-radius:8px;border:1px solid #2D2D2D;color:#2D2D2D;background-color:#ffffff;" target="_blank">Leave a Google Review</a></p>
         </mj-text>
         <mj-social align="center" border-radius="25px" container-background-color="transparent" icon-size="28px" mode="horizontal" text-mode="false">
           <mj-social-element background-color="#3B5998" href="https://www.facebook.com/people/Cobys-Cafe/61553537724188/" name="facebook-noshare" src="https://static.mailjet.com/ico-social/facebook.png"></mj-social-element>
